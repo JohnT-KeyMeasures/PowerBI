@@ -1,0 +1,31 @@
+(StartDate as date, EndDate as date) =>
+
+let
+//Basic Table with Date
+    DayCount = Duration.Days(EndDate - StartDate),
+    CreateList = List.Dates(StartDate, DayCount, #duration(1,0,0,0)),
+    ListToTable = Table.FromList(CreateList, Splitter.SplitByNothing(), {"Date"}, null, ExtraValues.Error),
+    ChangedType = Table.TransformColumnTypes(ListToTable,{"Date", type date}),
+
+//Add Additional fields
+    InsertYear = Table.AddColumn(ChangedType, "Year", each Date.Year([Date]), type number),
+    InsertQuarter = Table.AddColumn(InsertYear, "Quarter", each Date.QuarterOfYear([Date]), type number),
+    InsertMonth = Table.AddColumn(InsertQuarter, "Month", each Date.Month([Date]), type number),
+    InsertDay = Table.AddColumn(InsertMonth, "Day", each Date.Day([Date]), type number),
+ 
+    InsertMonthName = Table.AddColumn(InsertDay, "Month Name", each Date.ToText([Date], "MMMM"), type text),
+    InsertDayName = Table.AddColumn(InsertMonthName, "DayOfWeek", each Date.ToText([Date], "dddd"), type text),  
+ 
+    InsertWeekCommencing = Table.AddColumn(InsertDayName, "WeekCommencing", each Date.StartOfWeek( [Date], Day.Monday), type date),
+    InsertWeekEnding = Table.AddColumn(InsertWeekCommencing, "WeekEnding", each Date.EndOfWeek( [Date], Day.Sunday), type date),
+    InsertISOWeekNumber= Table.AddColumn(InsertWeekEnding, "ISO Weeknumber", each
+      if Number.RoundDown((Date.DayOfYear([Date])-(Date.DayOfWeek([Date], Day.Monday)+1)+10)/7)=0
+      then Number.RoundDown((Date.DayOfYear(#date(Date.Year([Date])-1,12,31))-(Date.DayOfWeek(#date(Date.Year([Date])-1,12,31), Day.Monday)+1)+10)/7)
+      else if (Number.RoundDown((Date.DayOfYear([Date])-(Date.DayOfWeek([Date], Day.Monday)+1)+10)/7)=53 and (Date.DayOfWeek(#date(Date.Year([Date]),12,31), Day.Monday)+1<4))
+      then 1 else Number.RoundDown((Date.DayOfYear([Date])-(Date.DayOfWeek([Date], Day.Monday)+1)+10)/7), type number),
+
+    InsertMonthStart = Table.AddColumn(InsertISOWeekNumber, "MonthStart", each Date.StartOfMonth([Date]), type date)
+
+
+in
+    InsertMonthStart
